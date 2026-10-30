@@ -21,6 +21,7 @@ router.post("/login", loginLimiter, admin.login);
 
 router.use(requireAdmin);
 router.get("/settings", admin.settings);
+router.put("/settings/fallback", admin.saveFallback);
 router.get("/overview", admin.overview);
 router.get("/users", admin.listUsers);
 router.get("/policies", admin.listPolicies);

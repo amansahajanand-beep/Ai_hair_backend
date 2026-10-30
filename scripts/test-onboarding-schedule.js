@@ -201,6 +201,29 @@ test("after the last day the admin-set constant limit applies", async () => {
     assert.strictEqual(await drain("no-user", at(5), { country: "NO" }), 2);
 });
 
+test("admin-set limit for countries without a rule (every day)", async () => {
+    const settings = require("../src/services/hairstyle-api/settings.service");
+    // no policy covers BR2-style countries here; use one with no rule and no DEFAULT
+    await QuotaPolicy.deleteOne({ country: "DEFAULT" });
+    assert.strictEqual((await settings.getFallbackLimit()).source, "env");
+    await settings.setFallbackLimit(7, "test");
+    assert.deepStrictEqual(await settings.getFallbackLimit(), { limit: 7, source: "admin" });
+
+    for (const d of [0, 1, 40]) {
+        assert.strictEqual(await drain("zz-user", at(d), { country: "JP" }), 7, "day " + (d + 1));
+    }
+    // a country with its own rule is unaffected
+    assert.strictEqual(await drain("es2-user", at(0), { country: "ES" }), 5);
+    // existing (legacy) users keep the .env quota
+    await require("../src/models/dailyApiUsage.model").create({ device_id: "old-fb", date: "2000-01-01", used_count: 1 });
+    assert.strictEqual(await drain("old-fb", at(0), { country: "JP" }), 3);
+    // 0 blocks; clearing goes back to .env
+    await settings.setFallbackLimit(0, "test");
+    assert.strictEqual(await drain("zz-user2", at(0), { country: "JP" }), 0);
+    await settings.setFallbackLimit(null);
+    assert.strictEqual((await settings.getFallbackLimit()).source, "env");
+});
+
 test("quotaSummary for unlimited and onboarding", async () => {
     const r = await usage.reserveQuota("us-user", at(9), { country: "US" });
     const q = usage.quotaSummary(r, at(9)).quota;

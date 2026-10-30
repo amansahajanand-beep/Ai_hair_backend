@@ -184,7 +184,7 @@
       "div",
       { class: "notice warn" },
       h("span", {}, "⚠️"),
-      h("span", {}, `No country limits are set, so every user gets the standard ${settings.fallback_daily_quota} images/day. `, h("a", { href: "#/limits" }, "Set limits →"))
+      h("span", {}, `No country limits are set, so every new user gets ${settings.fallback_daily_quota} images/day. `, h("a", { href: "#/limits" }, "Set limits →"))
     );
 
     page.replaceChildren(
@@ -221,9 +221,12 @@
       h("span", {}, `Each rule sets how many images a `, h("strong", {}, "new user"), ` may generate on each day of a period you choose (for example 3 or 10 days). After that, they get the fixed daily limit you set for "after the last day" (or no limit, if you choose). Existing users are not affected.`)
     );
 
+    const fallback = fallbackCard(policies.find((p) => p.country === "DEFAULT" && p.enabled));
+
     if (!policies.length) {
       page.replaceChildren(
         intro,
+        fallback,
         h(
           "div",
           { class: "card empty" },
@@ -241,7 +244,54 @@
       a.country === "DEFAULT" ? -1 : b.country === "DEFAULT" ? 1 : countryName(a.country).localeCompare(countryName(b.country))
     );
 
-    page.replaceChildren(intro, h("div", { class: "policy-grid" }, sorted.map(policyCard)));
+    page.replaceChildren(intro, fallback, h("div", { class: "policy-grid" }, sorted.map(policyCard)));
+  }
+
+  /** Flat daily limit for new users from countries that have no rule of their own. */
+  function fallbackCard(defaultRule) {
+    const input = h("input", { type: "number", min: 0, max: settings.max_day_limit, step: 1, value: settings.fallback_daily_quota, inputmode: "numeric", id: "fallback-limit", "aria-label": "Daily images for other countries" });
+    const step = (d) => {
+      input.value = Math.min(settings.max_day_limit, Math.max(0, (parseInt(input.value, 10) || 0) + d));
+    };
+    const saveBtn = h("button", { class: "btn btn-primary", disabled: Boolean(defaultRule) }, "Save");
+
+    saveBtn.addEventListener("click", async () => {
+      const n = Number(input.value);
+      if (input.value.trim() === "" || !Number.isInteger(n) || n < 0 || n > settings.max_day_limit) {
+        return toast(`Enter a whole number between 0 and ${settings.max_day_limit}`, true);
+      }
+      saveBtn.disabled = true;
+      try {
+        await api("/settings/fallback", { method: "PUT", body: { limit: n } });
+        settings.fallback_daily_quota = n;
+        settings.fallback_source = "admin";
+        toast(`Other countries now get ${n} image${n === 1 ? "" : "s"} per day`);
+      } catch (error) {
+        toast(error.message, true);
+      } finally {
+        saveBtn.disabled = Boolean(defaultRule);
+      }
+    });
+
+    return h(
+      "div",
+      { class: "card fallback" + (defaultRule ? " off" : "") },
+      h("div", { class: "fallback-text" },
+        h("h3", {}, "🌍 All other countries"),
+        h("p", { class: "muted small" },
+          defaultRule
+            ? "Covered by the “All other countries” day-by-day rule below, which takes priority over this setting. Pause or delete that rule to use a single daily limit instead."
+            : `New users from any country without its own rule get this many images every day, from their first day on.${settings.fallback_source === "env" ? " (Currently the default from the server settings; save to change it.)" : ""}`)
+      ),
+      h("div", { class: "fallback-controls" },
+        h("div", { class: "stepper after-stepper" },
+          h("button", { type: "button", "aria-label": "Decrease", disabled: Boolean(defaultRule), onclick: () => step(-1) }, "−"),
+          input,
+          h("button", { type: "button", "aria-label": "Increase", disabled: Boolean(defaultRule), onclick: () => step(1) }, "+")),
+        h("span", { class: "muted small" }, "images / day"),
+        saveBtn,
+        h("button", { class: "btn", onclick: () => openPolicyDialog(defaultRule || null, "DEFAULT") }, defaultRule ? "Edit day-wise limits" : "Set day-wise limits"))
+    );
   }
 
   function policyCard(p) {
@@ -337,18 +387,20 @@
     );
   }
 
-  function openPolicyDialog(policy) {
+  /** `presetCode` pre-fills (and locks) the country for a new rule, e.g. "DEFAULT". */
+  function openPolicyDialog(policy, presetCode) {
     editing = policy || null;
-    $("#dialog-title").textContent = policy ? `Edit ${countryName(policy.country)}` : "Add country limits";
-    countryInput.value = policy ? `${countryName(policy.country)} (${policy.country})` : "";
-    countryInput.readOnly = Boolean(policy);
-    $("#country-hint").textContent = policy ? countryName(policy.country) : "";
+    const code = policy ? policy.country : presetCode || null;
+    $("#dialog-title").textContent = policy ? `Edit ${countryName(code)}` : code ? `Day-wise limits: ${countryName(code)}` : "Add country limits";
+    countryInput.value = code ? `${countryName(code)} (${code})` : "";
+    countryInput.readOnly = Boolean(code);
+    $("#country-hint").textContent = code ? countryName(code) : "";
     $("#enabled-input").checked = policy ? policy.enabled : true;
     setDays(policy ? policy.day_limits : [3, 2, 2, 1, 1, 1]);
     setAfter(policy ? policy.after_limit : 1);
     $("#dialog-error").hidden = true;
     dialog.showModal();
-    (policy ? $("#day-0") : countryInput).focus();
+    (code ? $("#day-0") : countryInput).focus();
   }
 
   // ---- number of days ----

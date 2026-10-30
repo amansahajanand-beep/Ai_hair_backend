@@ -56,7 +56,7 @@ Under **Country limits** the admin sets, per country, how many images a *new* us
 | Situation | Limit |
 |---|---|
 | New device, country rule (or DEFAULT rule) active | day 1..N = rule values (N = days you set), day N+1 onwards = `after_limit` per day (or unlimited) |
-| New device, no active rule | flat `DAILY_API_QUOTA` (as before) |
+| New device, no active rule for its country | the admin's "All other countries" daily limit (Country limits page, same number every day); `DAILY_API_QUOTA` until the admin sets one |
 | Device that used the API before this feature ("existing user") | flat `DAILY_API_QUOTA`, unchanged |
 
 - A device's day 1 is the day it is first seen, by `/api/check-free-limit` or `/api/hairstyle`. Days roll over at midnight in `QUOTA_TIMEZONE`.

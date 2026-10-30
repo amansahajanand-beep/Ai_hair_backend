@@ -4,6 +4,7 @@ const QuotaPolicy = require("../../models/quotaPolicy.model");
 const DailyApiUsage = require("../../models/dailyApiUsage.model");
 const GenerationHistory = require("../../models/generationHistory.model");
 const { getDailyQuota } = require("../../config/hairstyle-api/quota");
+const settingsService = require("./settings.service");
 
 
 /**
@@ -117,12 +118,14 @@ async function findPolicy(country) {
  * Pure rule: given a device and policy, today's limit.
  * `limit: null` means unlimited.
  */
-function computeEntitlement(device, policy, todayDate) {
+function computeEntitlement(device, policy, todayDate, fallbackLimit = getDailyQuota()) {
     const day = dayNumber(device.first_seen_date, todayDate);
 
     if (device.legacy || !policy) {
         return {
-            limit: getDailyQuota(),
+            // Existing users keep the .env quota; new users with no country rule
+            // get the admin's "other countries" limit.
+            limit: device.legacy ? getDailyQuota() : fallbackLimit,
             phase: "standard",
             day,
             policy_country: null
@@ -153,9 +156,10 @@ function computeEntitlement(device, policy, todayDate) {
 async function resolveEntitlement(deviceId, context, todayDate) {
     const device = await ensureDevice(deviceId, normalizeCountry(context?.country), todayDate);
     const policy = device.legacy ? null : await findPolicy(device.country);
+    const fallback = device.legacy || policy ? null : await settingsService.getFallbackLimit();
 
     return {
-        ...computeEntitlement(device, policy, todayDate),
+        ...computeEntitlement(device, policy, todayDate, fallback?.limit),
         country: device.country
     };
 }

@@ -4,6 +4,7 @@ const DailyApiUsage = require("../../models/dailyApiUsage.model");
 const adminAuth = require("../../middlewares/admin/adminAuth");
 const entitlementService = require("../../services/hairstyle-api/entitlement.service");
 const usageService = require("../../services/hairstyle-api/usage.service");
+const settingsService = require("../../services/hairstyle-api/settings.service");
 const { getDailyQuota, getQuotaTimezone } = require("../../config/hairstyle-api/quota");
 
 const { MAX_SCHEDULE_DAYS, MAX_DAY_LIMIT } = QuotaPolicy;
@@ -63,17 +64,39 @@ exports.login = (req, res) => {
     res.json({ success: true, ...adminAuth.issueToken(username || "admin") });
 };
 
-exports.settings = (req, res) => {
-    res.json({
-        success: true,
-        data: {
-            max_schedule_days: MAX_SCHEDULE_DAYS,
-            max_day_limit: MAX_DAY_LIMIT,
-            timezone: getQuotaTimezone(),
-            fallback_daily_quota: getDailyQuota(),
-            today: usageService.getDateKey()
+exports.settings = async (req, res, next) => {
+    try {
+        const fallback = await settingsService.getFallbackLimit();
+        res.json({
+            success: true,
+            data: {
+                max_schedule_days: MAX_SCHEDULE_DAYS,
+                max_day_limit: MAX_DAY_LIMIT,
+                timezone: getQuotaTimezone(),
+                fallback_daily_quota: fallback.limit,
+                fallback_source: fallback.source,
+                env_daily_quota: getDailyQuota(),
+                today: usageService.getDateKey()
+            }
+        });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/** Daily limit for new users from countries with no rule. */
+exports.saveFallback = async (req, res, next) => {
+    try {
+        const raw = req.body?.limit;
+        const n = typeof raw === "number" ? raw : Number(String(raw ?? "").trim());
+        if (raw === undefined || raw === null || raw === "" || !Number.isInteger(n) || n < 0 || n > MAX_DAY_LIMIT) {
+            return fail(res, 400, `Enter a whole number between 0 and ${MAX_DAY_LIMIT}`);
         }
-    });
+        await settingsService.setFallbackLimit(n, req.admin.u);
+        res.json({ success: true, data: { fallback_daily_quota: n, fallback_source: "admin" } });
+    } catch (err) {
+        next(err);
+    }
 };
 
 // ---------- policies ----------
@@ -269,6 +292,7 @@ exports.listUsers = async (req, res, next) => {
         if (req.query.type === "existing") filter.legacy = true;
 
         const today = usageService.getDateKey();
+        const fallback = await settingsService.getFallbackLimit();
 
         const [total, devices, policies] = await Promise.all([
             Device.countDocuments(filter),
@@ -291,7 +315,7 @@ exports.listUsers = async (req, res, next) => {
 
         const rows = devices.map((d) => {
             const policy = d.legacy ? null : policyByCountry[d.country] || policyByCountry.DEFAULT || null;
-            const e = entitlementService.computeEntitlement(d, policy, today);
+            const e = entitlementService.computeEntitlement(d, policy, today, fallback.limit);
             return {
                 device_id: d.device_id,
                 country: d.country,
