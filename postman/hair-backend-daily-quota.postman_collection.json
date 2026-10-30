@@ -1,0 +1,639 @@
+{
+  "info": {
+    "name": "Hair Backend - Daily API Quota",
+    "description": "Run the 'Quota flow' folder with the Collection Runner (in order). Step 1 creates a fresh device_id. In every 'Generate' request, pick an image file in the 'image' form field once (Body > form-data > image > Select Files). Assumes DAILY_API_QUOTA=3.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "production_url",
+      "value": "https://YOUR-PRODUCTION-API-HOST"
+    },
+    {
+      "key": "device_id",
+      "value": "postman-device-1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Quota flow (assumes DAILY_API_QUOTA=3)",
+      "item": [
+        {
+          "name": "1. New device + check quota (remaining 3)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"device_id\", \"postman-\" + Date.now());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK\", () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"remaining = 3\", () => pm.expect(d.remaining).to.eql(3));",
+                  "pm.test(\"image_generation = true\", () => pm.expect(d.image_generation).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"{{device_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/check-free-limit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "check-free-limit"
+              ]
+            }
+          }
+        },
+        {
+          "name": "2. Generate #1 (within quota)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK - generation accepted\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"success=true and image present\", () => { pm.expect(j.success).to.eql(true); pm.expect(j.image).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Hairstyle generation. hair_style/color values come from the project's asset names, e.g. LowFade / blonde.",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "device_id",
+                  "value": "{{device_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "hair_style",
+                  "value": "LowFade",
+                  "type": "text"
+                },
+                {
+                  "key": "color",
+                  "value": "blonde",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/hairstyle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "hairstyle"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3. Check quota (remaining 2)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK\", () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"remaining = 2\", () => pm.expect(d.remaining).to.eql(2));",
+                  "pm.test(\"image_generation = true\", () => pm.expect(d.image_generation).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"{{device_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/check-free-limit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "check-free-limit"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. Generate #2",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK - generation accepted\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"success=true and image present\", () => { pm.expect(j.success).to.eql(true); pm.expect(j.image).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "device_id",
+                  "value": "{{device_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "hair_style",
+                  "value": "LowFade",
+                  "type": "text"
+                },
+                {
+                  "key": "color",
+                  "value": "blonde",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/hairstyle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "hairstyle"
+              ]
+            }
+          }
+        },
+        {
+          "name": "5. Generate #3 (last allowed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK - generation accepted\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"success=true and image present\", () => { pm.expect(j.success).to.eql(true); pm.expect(j.image).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "device_id",
+                  "value": "{{device_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "hair_style",
+                  "value": "LowFade",
+                  "type": "text"
+                },
+                {
+                  "key": "color",
+                  "value": "blonde",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/hairstyle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "hairstyle"
+              ]
+            }
+          }
+        },
+        {
+          "name": "6. Generate #4 -> 429 quota exceeded",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"429 quota exceeded\", () => pm.response.to.have.status(429));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"code DAILY_QUOTA_EXCEEDED\", () => { pm.expect(j.success).to.eql(false); pm.expect(j.code).to.eql(\"DAILY_QUOTA_EXCEEDED\"); pm.expect(j.remaining).to.eql(0); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "device_id",
+                  "value": "{{device_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "hair_style",
+                  "value": "LowFade",
+                  "type": "text"
+                },
+                {
+                  "key": "color",
+                  "value": "blonde",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/hairstyle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "hairstyle"
+              ]
+            }
+          }
+        },
+        {
+          "name": "7. Check quota (remaining 0)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK\", () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json().data;",
+                  "pm.test(\"remaining = 0\", () => pm.expect(d.remaining).to.eql(0));",
+                  "pm.test(\"image_generation = false\", () => pm.expect(d.image_generation).to.eql(false));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"{{device_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/check-free-limit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "check-free-limit"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Other requests",
+      "item": [
+        {
+          "name": "Check remaining daily quota",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"{{device_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/check-free-limit",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "check-free-limit"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Generate beard (shares the same quota)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"200 OK - generation accepted\", () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "pm.test(\"success=true and image present\", () => { pm.expect(j.success).to.eql(true); pm.expect(j.image).to.be.a(\"string\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "device_id",
+                  "value": "{{device_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "beard_style",
+                  "value": "Goatee",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/hairstyle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "hairstyle"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Invalid: missing device_id -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"400 INVALID_DEVICE_ID\", () => { pm.response.to.have.status(400); pm.expect(pm.response.json().code).to.eql(\"INVALID_DEVICE_ID\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "hair_style",
+                  "value": "LowFade",
+                  "type": "text"
+                },
+                {
+                  "key": "color",
+                  "value": "blonde",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/hairstyle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "hairstyle"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Invalid: missing color -> 500, no quota charged",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"validation error (not charged)\", () => pm.response.to.have.status(500));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "device_id",
+                  "value": "{{device_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "hair_style",
+                  "value": "LowFade",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/hairstyle",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "hairstyle"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Production (set production_url first)",
+      "item": [
+        {
+          "name": "Check quota (production)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"{{device_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{production_url}}/api/check-free-limit",
+              "host": [
+                "{{production_url}}"
+              ],
+              "path": [
+                "api",
+                "check-free-limit"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Generate hairstyle (production)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "image",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "device_id",
+                  "value": "{{device_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "hair_style",
+                  "value": "LowFade",
+                  "type": "text"
+                },
+                {
+                  "key": "color",
+                  "value": "blonde",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{production_url}}/api/hairstyle",
+              "host": [
+                "{{production_url}}"
+              ],
+              "path": [
+                "api",
+                "hairstyle"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

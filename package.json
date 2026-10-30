@@ -1,0 +1,35 @@
+{
+  "name": "hair-backend",
+  "version": "1.0.0",
+  "description": "Merged backend API for hair catalog and hairstyle generation",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "migrate:usage": "node scripts/migrate-usage-to-mongo.js"
+  },
+  "keywords": [
+    "node",
+    "express",
+    "api",
+    "images",
+    "hairstyle"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.18.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.5.2",
+    "form-data": "^4.0.6",
+    "geoip-lite": "^2.0.3",
+    "helmet": "^8.3.0",
+    "mongoose": "^8.24.1",
+    "multer": "^2.2.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
