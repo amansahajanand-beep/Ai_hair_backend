@@ -1,0 +1,68 @@
+name: Deploy AI Hair Backend
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+concurrency:
+  group: ai-hair-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to DigitalOcean VPS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy through SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+
+        run: |
+          set -e
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+
+          ssh -i ~/.ssh/id_ed25519 \
+            -p "$VPS_PORT" \
+            -o StrictHostKeyChecking=yes \
+            "$VPS_USER@$VPS_HOST" 'bash -se' <<'REMOTE'
+
+          set -e
+
+          echo "Starting deployment..."
+
+          cd /var/www/AI_Hair_Style_Copy
+
+          echo "Pulling latest code..."
+          git pull --ff-only origin main
+
+          echo "Installing production dependencies..."
+          npm ci --omit=dev
+
+          echo "Restarting PM2..."
+          pm2 restart ai-hair-backend --update-env
+
+          pm2 save
+
+          echo "Checking backend..."
+          curl --silent --show-error \
+            --max-time 10 \
+            -o /dev/null \
+            http://127.0.0.1:3003/
+
+          echo "Deployment completed successfully!"
+
+          REMOTE
