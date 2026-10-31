@@ -58,10 +58,15 @@ jobs:
           pm2 save
 
           echo "Checking backend..."
-          curl --silent --show-error \
+          curl --silent --show-error --fail \
+            --retry 15 --retry-delay 2 --retry-connrefused \
             --max-time 10 \
             -o /dev/null \
-            http://127.0.0.1:3003/
+            http://127.0.0.1:3003/ || {
+              echo "Backend did not come up. Last logs:"
+              pm2 logs ai-hair-backend --lines 40 --nostream
+              exit 1
+            }
 
           echo "Deployment completed successfully!"
 
