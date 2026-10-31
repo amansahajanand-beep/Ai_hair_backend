@@ -1,6 +1,7 @@
 const Device = require("../../models/device.model");
 const QuotaPolicy = require("../../models/quotaPolicy.model");
 const DailyApiUsage = require("../../models/dailyApiUsage.model");
+const GenerationHistory = require("../../models/generationHistory.model");
 const adminAuth = require("../../middlewares/admin/adminAuth");
 const entitlementService = require("../../services/hairstyle-api/entitlement.service");
 const usageService = require("../../services/hairstyle-api/usage.service");
@@ -156,6 +157,29 @@ exports.deletePolicy = async (req, res, next) => {
         if (!country) return fail(res, 400, "Invalid country.");
         const { deletedCount } = await QuotaPolicy.deleteOne({ country });
         if (!deletedCount) return fail(res, 404, "No policy for that country.");
+        res.json({ success: true });
+    } catch (err) {
+        next(err);
+    }
+};
+
+/**
+ * Removes a device and everything stored for it (daily counters, history).
+ * If the app opens again with the same device_id it is treated as a brand-new
+ * user and starts the country schedule from day 1.
+ */
+exports.deleteUser = async (req, res, next) => {
+    try {
+        const deviceId = String(req.params.deviceId || "").trim();
+        if (!deviceId || deviceId.length > 128) return fail(res, 400, "Invalid device ID.");
+
+        const { deletedCount } = await Device.deleteOne({ device_id: deviceId });
+        if (!deletedCount) return fail(res, 404, "User not found.");
+
+        await Promise.all([
+            DailyApiUsage.deleteMany({ device_id: deviceId }),
+            GenerationHistory.deleteMany({ device_id: deviceId })
+        ]);
         res.json({ success: true });
     } catch (err) {
         next(err);

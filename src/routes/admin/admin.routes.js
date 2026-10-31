@@ -24,6 +24,7 @@ router.get("/settings", admin.settings);
 router.put("/settings/fallback", admin.saveFallback);
 router.get("/overview", admin.overview);
 router.get("/users", admin.listUsers);
+router.delete("/users/:deviceId", admin.deleteUser);
 router.get("/policies", admin.listPolicies);
 router.put("/policies/:country", admin.savePolicy);
 router.delete("/policies/:country", admin.deletePolicy);

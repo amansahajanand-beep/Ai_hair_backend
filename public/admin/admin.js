@@ -573,6 +573,17 @@
   }
 
   function usersTable(data, goto) {
+    async function removeUser(r) {
+      if (!window.confirm(`Delete this user?\n\n${r.device_id}\n\nTheir usage and history are removed too. If this device opens the app again it starts as a brand-new user.`)) return;
+      try {
+        await api("/users/" + encodeURIComponent(r.device_id), { method: "DELETE" });
+        toast("User deleted");
+        goto(data.rows.length === 1 && data.page > 1 ? data.page - 1 : data.page);
+      } catch (error) {
+        toast(error.message, true);
+      }
+    }
+
     if (!data.rows.length) {
       return h("div", { class: "empty" }, h("div", { class: "big" }, "🙂"), h("h3", {}, "No users found"), h("p", {}, "Users appear here the first time their device opens the app."));
     }
@@ -595,14 +606,15 @@
       {},
       h("div", { class: "table-wrap" },
         h("table", {},
-          h("thead", {}, h("tr", {}, ["Device", "Country", "Joined", "Stage", "Today"].map((t) => h("th", {}, t)))),
+          h("thead", {}, h("tr", {}, ["Device", "Country", "Joined", "Stage", "Today", ""].map((t) => h("th", {}, t)))),
           h("tbody", {}, data.rows.map((r) =>
             h("tr", {},
               h("td", {}, h("span", { class: "mono ellipsis", title: r.device_id }, r.device_id)),
               h("td", {}, h("span", { class: "country" }, flag(r.country), r.country ? countryName(r.country) : "Unknown")),
               h("td", { class: "small" }, when(r.first_seen)),
               h("td", {}, phase(r)),
-              h("td", {}, usage(r))
+              h("td", {}, usage(r)),
+              h("td", {}, h("button", { class: "btn btn-sm btn-ghost", onclick: () => removeUser(r) }, "Delete"))
             )
           ))
         )
